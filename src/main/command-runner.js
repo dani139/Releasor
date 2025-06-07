@@ -73,10 +73,17 @@ class CommandRunner extends EventEmitter {
         const command = this.resolveCommand(commandKey, environment);
         const [cmd, ...args] = command.split(' ');
 
-        const process = spawn(cmd, args, {
+        const options = {
           shell: true,
           stdio: ['pipe', 'pipe', 'pipe']
-        });
+        };
+
+        // Use working directory from config if available
+        if (this.config.working_directory) {
+          options.cwd = this.config.working_directory;
+        }
+
+        const process = spawn(cmd, args, options);
 
         let stdout = '';
         let stderr = '';
@@ -127,10 +134,17 @@ class CommandRunner extends EventEmitter {
       const [cmd, ...args] = command.split(' ');
       const streamId = `stream_${++this.streamCounter}`;
 
-      const process = spawn(cmd, args, {
+      const options = {
         shell: true,
         stdio: ['pipe', 'pipe', 'pipe']
-      });
+      };
+
+      // Use working directory from config if available
+      if (this.config.working_directory) {
+        options.cwd = this.config.working_directory;
+      }
+
+      const process = spawn(cmd, args, options);
 
       this.streams.set(streamId, {
         process,

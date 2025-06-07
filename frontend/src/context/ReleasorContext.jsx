@@ -57,8 +57,27 @@ export function ReleasorProvider({ children }) {
   useEffect(() => {
     if (window.electronAPI) {
       loadConfig()
+      setupStreamEventListeners()
     }
   }, [])
+
+  const setupStreamEventListeners = () => {
+    // Handle stream data
+    window.electronAPI.onStreamData((event, data) => {
+      // You can emit this data to components that need it
+      window.dispatchEvent(new CustomEvent('stream-data', { detail: data }))
+    })
+
+    // Handle stream end
+    window.electronAPI.onStreamEnd((event, data) => {
+      window.dispatchEvent(new CustomEvent('stream-end', { detail: data }))
+    })
+
+    // Handle stream error  
+    window.electronAPI.onStreamError((event, data) => {
+      window.dispatchEvent(new CustomEvent('stream-error', { detail: data }))
+    })
+  }
 
   const loadConfig = async () => {
     try {

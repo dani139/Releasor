@@ -1,19 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const CommandRunner = require('./src/main/command-runner');
-
-// Hot reload in development
-if (process.env.NODE_ENV === 'development') {
-  require('electron-reload')(__dirname, {
-    electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
-    hardResetMethod: 'exit'
-  });
-}
+const CommandRunner = require('./command-runner');
 
 let mainWindow;
 let commandRunner;
 
-function createWindow() {
+const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -22,18 +14,13 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, 'assets/icon.png'),
+    icon: path.join(__dirname, '../assets/icon.png'),
     titleBarStyle: 'hiddenInset',
     show: false
   });
 
-  // Point to Vite dev server in dev, or built index.html in prod
-  const isDev = !app.isPackaged;
-  const url = isDev
-    ? 'http://localhost:5173'
-    : `file://${path.join(__dirname, 'frontend/dist/index.html')}`;
-  
-  mainWindow.loadURL(url);
+  // Load the UI
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
@@ -41,10 +28,10 @@ function createWindow() {
   });
 
   // Development tools
-  if (isDev) {
+  if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
-}
+};
 
 app.whenReady().then(() => {
   createWindow();
@@ -61,9 +48,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });
 
 function setupIpcHandlers() {
@@ -119,20 +104,14 @@ function setupIpcHandlers() {
 
   // Stream data events
   commandRunner.on('stream-data', (streamId, data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('stream-data', { streamId, data });
-    }
+    mainWindow.webContents.send('stream-data', { streamId, data });
   });
 
   commandRunner.on('stream-end', (streamId) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('stream-end', { streamId });
-    }
+    mainWindow.webContents.send('stream-end', { streamId });
   });
 
   commandRunner.on('stream-error', (streamId, error) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('stream-error', { streamId, error });
-    }
+    mainWindow.webContents.send('stream-error', { streamId, error });
   });
 } 

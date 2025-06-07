@@ -9,17 +9,30 @@
       "color": "#ef4444"
     }
   },
+  "working_directory": "/home/danil/Projects/chatwithoats",
   "commands": {
     "logs": {
       "development": {
-        "backend": "tail -f ./logs/dev-backend.log",
-        "frontend": "tail -f ./logs/dev-frontend.log",
-        "database": "tail -f ./logs/dev-db.log"
+        "backend": "docker compose -f docker-compose.dev.yml logs backend -f",
+        "backend_tail": "docker compose -f docker-compose.dev.yml logs backend --tail=100",
+        "wuzapi": "docker compose -f docker-compose.dev.yml logs wuzapi -f",
+        "wuzapi_tail": "docker compose -f docker-compose.dev.yml logs wuzapi --tail=50",
+        "all_services": "docker compose -f docker-compose.dev.yml logs -f -t"
       },
       "production": {
-        "backend": "heroku logs --tail --app your-backend-app",
-        "frontend": "vercel logs --tail",
-        "database": "heroku logs --tail --app your-db-app"
+        "backend": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs backend -f --tail=100\"",
+        "wuzapi": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs wuzapi --tail=50\"",
+        "all_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs -f\""
+      }
+    },
+    "status": {
+      "development": {
+        "docker_status": "docker compose -f docker-compose.dev.yml ps",
+        "docker_services": "docker compose -f docker-compose.dev.yml ps --format table"
+      },
+      "production": {
+        "docker_status": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps\"",
+        "docker_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps --format table\""
       }
     },
     "deployment": {
