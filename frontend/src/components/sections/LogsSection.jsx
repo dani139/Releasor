@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useReleasor } from '../../context/ReleasorContext'
 
 export default function LogsSection() {
@@ -9,8 +9,22 @@ export default function LogsSection() {
   const [statusLoading, setStatusLoading] = useState(false)
   const [availableServices, setAvailableServices] = useState([])
   const [servicesLoading, setServicesLoading] = useState(false)
+  const logContainerRef = useRef(null)
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false)
 
   const isStreaming = activeStreams.size > 0
+
+  // Auto-scroll to bottom when log output changes
+  useEffect(() => {
+    if (logContainerRef.current) {
+      setIsAutoScrolling(true)
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
+      
+      // Clear the auto-scrolling indicator after a short delay
+      const timeout = setTimeout(() => setIsAutoScrolling(false), 500)
+      return () => clearTimeout(timeout)
+    }
+  }, [logOutput])
 
   // Detect available services when environment changes
   useEffect(() => {
@@ -70,10 +84,8 @@ export default function LogsSection() {
       }
     } catch (error) {
       console.error('Failed to detect services:', error)
-      setAvailableServices(['backend', 'wuzapi']) // Fallback services
-      if (!selectedService) {
-        setSelectedService('backend')
-      }
+      // No fallback services - show what we actually detect
+      setAvailableServices([])
     } finally {
       setServicesLoading(false)
     }
@@ -100,10 +112,10 @@ export default function LogsSection() {
         await stopLogStream()
       }
       
-      // Create dynamic command for the selected service
+      // Create dynamic command for the selected service using docker logs
       const command = currentEnvironment === 'production' 
-        ? `ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 "cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs ${selectedService} -f --tail=100"`
-        : `docker compose -f docker-compose.dev.yml logs ${selectedService} -f`
+        ? `ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 "docker logs ${selectedService} -f --tail=100"`
+        : `docker logs ${selectedService} -f --tail=100`
       
       // Execute dynamic log streaming
       await actions.startDynamicCommandStream(command, `logs_${selectedService}`)
@@ -308,21 +320,30 @@ export default function LogsSection() {
           <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
             📄 Live Logs: {selectedService || 'No service selected'}
           </span>
-          {isStreaming && (
-            <span style={{ color: '#10b981', fontSize: '12px' }}>
-              🟢 Streaming...
-            </span>
-          )}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {isStreaming && (
+              <span style={{ color: '#10b981', fontSize: '12px' }}>
+                🟢 Streaming...
+              </span>
+            )}
+            {isAutoScrolling && (
+              <span style={{ color: '#3b82f6', fontSize: '12px' }}>
+                ↓ Auto-scrolling
+              </span>
+            )}
+          </div>
         </div>
-        <div style={{
-          height: 'calc(100% - 50px)',
-          overflowY: 'auto',
-          padding: '15px',
-          fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace',
-          fontSize: '13px',
-          lineHeight: '1.4',
-          whiteSpace: 'pre-wrap'
-        }}>
+        <div 
+          ref={logContainerRef}
+          style={{
+            height: 'calc(100% - 50px)',
+            overflowY: 'auto',
+            padding: '15px',
+            fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace',
+            fontSize: '13px',
+            lineHeight: '1.4',
+            whiteSpace: 'pre-wrap'
+          }}>
           {logOutput || (
             <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
               {isStreaming ? 'Streaming logs...' : 
