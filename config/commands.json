@@ -23,6 +23,11 @@
         "backend": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs backend -f --tail=100\"",
         "wuzapi": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs wuzapi --tail=50\"",
         "all_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs -f\""
+      },
+      "frontend": {
+        "vercel_logs": "vercel logs --output json",
+        "vercel_latest": "vercel ls --limit 1",
+        "vercel_deployments": "vercel ls --limit 10"
       }
     },
     "status": {
@@ -35,16 +40,26 @@
         "docker_status": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps\"",
         "docker_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps --format table\"",
         "list_containers": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"docker ps --format '{{.Names}}'\""
+      },
+      "frontend": {
+        "vercel_status": "vercel inspect --wait",
+        "vercel_project": "vercel project ls"
       }
     },
     "deployment": {
       "git_status": "git status --porcelain",
       "git_log": "git log --oneline -10",
-      "vercel_deployments": "vercel ls",
-      "vercel_status": "vercel inspect",
+      "git_branch": "git branch -a",
+      "git_current_commit": "git rev-parse --short HEAD",
+      "git_remote_commit": "git rev-parse --short origin/master",
+      "vercel_deployments": "vercel ls --limit 5",
+      "vercel_status": "vercel project",
+      "vercel_current_branch": "git branch --show-current",
       "docker_status": "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'",
       "deploy_frontend": "vercel --prod",
-      "deploy_backend": "git push heroku main"
+      "deploy_backend": "git push heroku main",
+      "github_actions": "gh run list --limit 10 --json status,conclusion,name,createdAt,headBranch,headSha",
+      "github_deployments": "gh api repos/:owner/:repo/deployments --jq '.[] | {id, ref, environment, created_at, description}' | head -20"
     },
     "testing": {
       "run_unit_tests": "npm test",

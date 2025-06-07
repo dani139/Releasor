@@ -4,6 +4,7 @@ import { useReleasor } from '../../context/ReleasorContext'
 export default function LogsSection() {
   const { actions, activeStreams, currentEnvironment } = useReleasor()
   const [selectedService, setSelectedService] = useState('')
+  const [serviceType, setServiceType] = useState('docker') // 'docker' or 'frontend'
   const [logOutput, setLogOutput] = useState('')
   const [filteredLogOutput, setFilteredLogOutput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -43,8 +44,14 @@ export default function LogsSection() {
 
   // Auto-detect available services when environment changes
   useEffect(() => {
-    detectAvailableServices()
-  }, [currentEnvironment])
+    if (serviceType === 'docker') {
+      detectAvailableServices()
+    } else {
+      // For frontend, we have a fixed service
+      setAvailableServices(['frontend'])
+      setSelectedService('frontend')
+    }
+  }, [currentEnvironment, serviceType])
 
   // Auto-start streaming when service is selected
   useEffect(() => {
@@ -99,7 +106,6 @@ export default function LogsSection() {
       }
     } catch (error) {
       console.error('Failed to detect services:', error)
-      // No fallback services - show what we actually detect
       setAvailableServices([])
     } finally {
       setServicesLoading(false)
@@ -109,7 +115,10 @@ export default function LogsSection() {
   const checkServiceStatus = async () => {
     setStatusLoading(true)
     try {
-      const result = await actions.executeCommand(`status.${currentEnvironment}.docker_status`)
+      const commandKey = serviceType === 'docker' 
+        ? `status.${currentEnvironment}.docker_status`
+        : 'status.frontend.vercel_status'
+      const result = await actions.executeCommand(commandKey)
       setServiceStatus(result.stdout || result.stderr || 'Status check completed')
     } catch (error) {
       setServiceStatus(`Error checking status: ${error.message}`)
@@ -127,10 +136,16 @@ export default function LogsSection() {
         await stopLogStream()
       }
       
-      // Create dynamic command for the selected service using docker logs
-      const command = currentEnvironment === 'production' 
-        ? `ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 "docker logs ${selectedService} -f --tail=100"`
-        : `docker logs ${selectedService} -f --tail=100`
+      let command
+      if (serviceType === 'frontend') {
+        // For frontend, use Vercel logs command
+        command = `cd /home/danil/Projects/chatwithoats && vercel logs --limit 100`
+      } else {
+        // For Docker services, use docker logs
+        command = currentEnvironment === 'production' 
+          ? `ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 "docker logs ${selectedService} -f --tail=100"`
+          : `docker logs ${selectedService} -f --tail=100`
+      }
       
       // Execute dynamic log streaming
       await actions.startDynamicCommandStream(command, `logs_${selectedService}`)
@@ -159,6 +174,16 @@ export default function LogsSection() {
     setSelectedService(newService)
     setLogOutput('')
     setSearchTerm('') // Clear search when changing service
+  }
+
+  const handleServiceTypeChange = (newType) => {
+    if (isStreaming) {
+      stopLogStream()
+    }
+    setServiceType(newType)
+    setSelectedService('')
+    setLogOutput('')
+    setSearchTerm('')
   }
 
   return (
@@ -203,26 +228,51 @@ export default function LogsSection() {
           >
             {statusLoading ? '🔄' : '📊'} Status
           </button>
-          
-          <button 
-            onClick={stopLogStream}
-            disabled={!isStreaming}
+        </div>
+      </div>
+
+      {/* Service Type Selection */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '15px',
+        alignItems: 'center'
+      }}>
+        <span style={{ color: '#e2e8f0', fontWeight: '500' }}>
+          Service Type:
+        </span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => handleServiceTypeChange('docker')}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
               padding: '8px 16px',
               border: 'none',
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: '500',
-              cursor: !isStreaming ? 'not-allowed' : 'pointer',
-              background: !isStreaming ? '#6b7280' : '#ef4444',
+              cursor: 'pointer',
+              background: serviceType === 'docker' ? '#3b82f6' : '#334155',
               color: 'white',
-              opacity: !isStreaming ? 0.5 : 1
+              transition: 'all 0.2s'
             }}
           >
-            ⏹️ Stop Stream
+            🐳 Docker Services
+          </button>
+          <button
+            onClick={() => handleServiceTypeChange('frontend')}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              background: serviceType === 'frontend' ? '#3b82f6' : '#334155',
+              color: 'white',
+              transition: 'all 0.2s'
+            }}
+          >
+            ⚡ Frontend (Vercel)
           </button>
         </div>
       </div>
@@ -235,7 +285,7 @@ export default function LogsSection() {
         alignItems: 'center'
       }}>
         <span style={{ color: '#e2e8f0', fontWeight: '500' }}>
-          Service:
+          {serviceType === 'docker' ? 'Docker Container:' : 'Frontend Service:'}
         </span>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {availableServices.map(service => (
@@ -264,7 +314,7 @@ export default function LogsSection() {
                 }
               }}
             >
-              {service} {selectedService === service && isStreaming && '🟢'}
+              {serviceType === 'docker' ? `🐳 ${service}` : `⚡ ${service}`}
             </button>
           ))}
         </div>
@@ -289,7 +339,7 @@ export default function LogsSection() {
           overflowY: 'auto'
         }}>
           <div style={{ color: '#10b981', fontWeight: 'bold', marginBottom: '10px' }}>
-            📊 Service Status ({currentEnvironment}):
+            📊 {serviceType === 'docker' ? 'Docker' : 'Frontend'} Status ({currentEnvironment}):
           </div>
           <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#e2e8f0' }}>
             {serviceStatus}
@@ -398,7 +448,7 @@ export default function LogsSection() {
         background: '#1e293b',
         border: '1px solid #334155',
         borderRadius: '8px',
-        height: serviceStatus ? 'calc(100vh - 480px)' : 'calc(100vh - 360px)',
+        height: serviceStatus ? 'calc(100vh - 520px)' : 'calc(100vh - 400px)',
         overflow: 'hidden'
       }}>
         <div style={{
@@ -410,14 +460,11 @@ export default function LogsSection() {
           alignItems: 'center'
         }}>
           <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-            📄 Live Logs: {selectedService || 'No service selected'}
+            📄 Live Logs: {selectedService ? 
+              `${serviceType === 'docker' ? '🐳' : '⚡'} ${selectedService}` : 
+              'No service selected'}
           </span>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {isStreaming && (
-              <span style={{ color: '#10b981', fontSize: '12px' }}>
-                🟢 Streaming...
-              </span>
-            )}
             {isAutoScrolling && (
               <span style={{ color: '#3b82f6', fontSize: '12px' }}>
                 ↓ Auto-scrolling
