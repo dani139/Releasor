@@ -1,0 +1,78 @@
+{
+  "environments": {
+    "development": {
+      "name": "Development",
+      "color": "#10b981"
+    },
+    "production": {
+      "name": "Production",
+      "color": "#ef4444"
+    }
+  },
+  "commands": {
+    "logs": {
+      "development": {
+        "backend": "tail -f ./logs/dev-backend.log",
+        "frontend": "tail -f ./logs/dev-frontend.log",
+        "database": "tail -f ./logs/dev-db.log"
+      },
+      "production": {
+        "backend": "heroku logs --tail --app your-backend-app",
+        "frontend": "vercel logs --tail",
+        "database": "heroku logs --tail --app your-db-app"
+      }
+    },
+    "deployment": {
+      "git_status": "git status --porcelain",
+      "git_log": "git log --oneline -10",
+      "vercel_deployments": "vercel ls",
+      "vercel_status": "vercel inspect",
+      "docker_status": "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'",
+      "deploy_frontend": "vercel --prod",
+      "deploy_backend": "git push heroku main"
+    },
+    "testing": {
+      "run_unit_tests": "npm test",
+      "run_integration_tests": "npm run test:integration",
+      "run_e2e_tests": "npm run test:e2e",
+      "lint_check": "npm run lint",
+      "type_check": "npm run type-check"
+    },
+    "database": {
+      "development": {
+        "connect": "psql postgresql://localhost:5432/dev_db",
+        "status": "pg_isready -h localhost -p 5432",
+        "queries": {
+          "user_count": "psql -d dev_db -c 'SELECT COUNT(*) FROM users;'",
+          "recent_logs": "psql -d dev_db -c 'SELECT * FROM logs ORDER BY created_at DESC LIMIT 10;'"
+        }
+      },
+      "production": {
+        "connect": "heroku pg:psql --app your-app",
+        "status": "heroku pg:info --app your-app",
+        "queries": {
+          "user_count": "heroku pg:psql --app your-app -c 'SELECT COUNT(*) FROM users;'",
+          "recent_logs": "heroku pg:psql --app your-app -c 'SELECT * FROM logs ORDER BY created_at DESC LIMIT 10;'"
+        }
+      }
+    },
+    "system": {
+      "disk_usage": "df -h",
+      "memory_usage": "free -h",
+      "cpu_usage": "top -bn1 | grep 'Cpu(s)'",
+      "network_status": "netstat -tuln",
+      "process_list": "ps aux --sort=-%cpu | head -10"
+    }
+  },
+  "refresh_intervals": {
+    "logs": 2000,
+    "deployment": 30000,
+    "database": 10000,
+    "system": 5000
+  },
+  "ai_prompts": {
+    "analyze_logs": "Analyze these log entries and identify any issues, errors, or patterns that need attention:",
+    "deployment_summary": "Summarize the deployment status and highlight any issues:",
+    "test_analysis": "Analyze these test results and provide insights on failures and recommendations:"
+  }
+} 

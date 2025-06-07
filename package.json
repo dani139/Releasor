@@ -1,0 +1,59 @@
+{
+  "name": "releasor",
+  "version": "1.0.0",
+  "description": "AI-powered monitoring and testing tool for development and production environments",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run vite\" \"npm run electron-dev\"",
+    "vite": "cd frontend && npm run dev",
+    "electron-dev": "cross-env NODE_ENV=development electron .",
+    "test": "node tests/basic.spec.js",
+    "build": "cd frontend && npm run build",
+    "build:electron": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "electron",
+    "monitoring",
+    "logs",
+    "deployment",
+    "testing",
+    "ai",
+    "react",
+    "vite"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0",
+    "electron-reload": "^2.0.0-alpha.1",
+    "playwright": "^1.52.0"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "express": "^4.18.0",
+    "node-pty": "^0.10.1",
+    "ws": "^8.13.0"
+  },
+  "build": {
+    "appId": "com.releasor.app",
+    "productName": "Releasor",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "config/**/*",
+      "frontend/dist/**/*",
+      "node_modules/**/*"
+    ]
+  }
+}
