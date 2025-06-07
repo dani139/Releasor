@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startCommandStream: (commandKey, environment) => 
     ipcRenderer.invoke('start-command-stream', commandKey, environment),
   
+  startDynamicCommandStream: (command, streamId) => 
+    ipcRenderer.invoke('start-dynamic-command-stream', command, streamId),
+  
   stopCommandStream: (streamId) => 
     ipcRenderer.invoke('stop-command-stream', streamId),
 

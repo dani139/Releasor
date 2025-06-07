@@ -191,6 +191,68 @@ class CommandRunner extends EventEmitter {
     }
   }
 
+  async startDynamicStream(command, streamId = null) {
+    try {
+      const [cmd, ...args] = command.split(' ');
+      const actualStreamId = streamId || `dynamic_stream_${++this.streamCounter}`;
+
+      const options = {
+        shell: true,
+        stdio: ['pipe', 'pipe', 'pipe']
+      };
+
+      // Use working directory from config if available
+      if (this.config.working_directory) {
+        options.cwd = this.config.working_directory;
+      }
+
+      const process = spawn(cmd, args, options);
+
+      this.streams.set(actualStreamId, {
+        process,
+        command,
+        startTime: new Date(),
+        dynamic: true
+      });
+
+      process.stdout.on('data', (data) => {
+        this.emit('stream-data', actualStreamId, {
+          type: 'stdout',
+          data: data.toString(),
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      process.stderr.on('data', (data) => {
+        this.emit('stream-data', actualStreamId, {
+          type: 'stderr',
+          data: data.toString(),
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      process.on('close', (code) => {
+        this.emit('stream-end', actualStreamId, {
+          exitCode: code,
+          timestamp: new Date().toISOString()
+        });
+        this.streams.delete(actualStreamId);
+      });
+
+      process.on('error', (error) => {
+        this.emit('stream-error', actualStreamId, {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+        this.streams.delete(actualStreamId);
+      });
+
+      return actualStreamId;
+    } catch (error) {
+      throw new Error(`Failed to start dynamic stream: ${error.message}`);
+    }
+  }
+
   async stopStream(streamId) {
     const stream = this.streams.get(streamId);
     if (!stream) {

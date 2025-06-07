@@ -28,11 +28,13 @@
     "status": {
       "development": {
         "docker_status": "docker compose -f docker-compose.dev.yml ps",
-        "docker_services": "docker compose -f docker-compose.dev.yml ps --format table"
+        "docker_services": "docker compose -f docker-compose.dev.yml ps --format table",
+        "list_containers": "docker compose -f docker-compose.dev.yml ps --services"
       },
       "production": {
         "docker_status": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps\"",
-        "docker_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps --format table\""
+        "docker_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps --format table\"",
+        "list_containers": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps --services\""
       }
     },
     "deployment": {

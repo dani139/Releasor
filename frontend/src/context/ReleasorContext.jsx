@@ -131,6 +131,28 @@ export function ReleasorProvider({ children }) {
     }
   }
 
+  const startDynamicCommandStream = async (command, streamId) => {
+    try {
+      const result = await window.electronAPI.startDynamicCommandStream(command, streamId)
+      
+      if (result.success) {
+        dispatch({ 
+          type: actionTypes.ADD_STREAM, 
+          payload: { 
+            id: result.streamId, 
+            data: { command, startTime: new Date() }
+          }
+        })
+        return result.streamId
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      console.error('Failed to start dynamic stream:', error)
+      throw error
+    }
+  }
+
   const stopCommandStream = async (streamId) => {
     try {
       await window.electronAPI.stopCommandStream(streamId)
@@ -163,6 +185,7 @@ export function ReleasorProvider({ children }) {
       setConfigModal: (open) => dispatch({ type: actionTypes.SET_CONFIG_MODAL, payload: open }),
       executeCommand,
       startCommandStream,
+      startDynamicCommandStream,
       stopCommandStream,
       updateConfig,
       loadConfig

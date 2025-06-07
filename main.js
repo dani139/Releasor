@@ -87,6 +87,16 @@ function setupIpcHandlers() {
     }
   });
 
+  // Start dynamic command stream
+  ipcMain.handle('start-dynamic-command-stream', async (event, command, streamId) => {
+    try {
+      const actualStreamId = await commandRunner.startDynamicStream(command, streamId);
+      return { success: true, streamId: actualStreamId };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // Stop command stream
   ipcMain.handle('stop-command-stream', async (event, streamId) => {
     try {

@@ -3,39 +3,29 @@ import { useReleasor } from '../../context/ReleasorContext'
 
 export default function LogsSection() {
   const { actions, activeStreams, currentEnvironment } = useReleasor()
-  const [selectedSource, setSelectedSource] = useState('backend')
+  const [selectedService, setSelectedService] = useState('')
   const [logOutput, setLogOutput] = useState('')
   const [serviceStatus, setServiceStatus] = useState('')
   const [statusLoading, setStatusLoading] = useState(false)
+  const [availableServices, setAvailableServices] = useState([])
+  const [servicesLoading, setServicesLoading] = useState(false)
 
   const isStreaming = activeStreams.size > 0
 
-  // Available log sources based on environment
-  const logSources = {
-    development: [
-      { value: 'backend', label: 'Backend (Live)', command: 'backend' },
-      { value: 'backend_tail', label: 'Backend (Last 100)', command: 'backend_tail' },
-      { value: 'wuzapi', label: 'WuzAPI (Live)', command: 'wuzapi' },
-      { value: 'wuzapi_tail', label: 'WuzAPI (Last 50)', command: 'wuzapi_tail' },
-      { value: 'all_services', label: 'All Services (Live)', command: 'all_services' }
-    ],
-    production: [
-      { value: 'backend', label: 'Backend (Live)', command: 'backend' },
-      { value: 'wuzapi', label: 'WuzAPI (Last 50)', command: 'wuzapi' },
-      { value: 'all_services', label: 'All Services (Live)', command: 'all_services' }
-    ]
-  }
-
-  const currentSources = logSources[currentEnvironment] || logSources.development
-
+  // Detect available services when environment changes
   useEffect(() => {
-    // Reset selected source when environment changes
-    setSelectedSource(currentSources[0]?.value || 'backend')
-    checkServiceStatus()
+    detectAvailableServices()
   }, [currentEnvironment])
 
+  // Auto-start streaming when service is selected
   useEffect(() => {
-    // Listen for stream events
+    if (selectedService && !isStreaming) {
+      startLogStream()
+    }
+  }, [selectedService])
+
+  // Listen for stream events
+  useEffect(() => {
     const handleStreamData = (event) => {
       const { data } = event.detail
       if (data && data.data) {
@@ -65,6 +55,30 @@ export default function LogsSection() {
     }
   }, [])
 
+  const detectAvailableServices = async () => {
+    setServicesLoading(true)
+    try {
+      const result = await actions.executeCommand(`status.${currentEnvironment}.list_containers`)
+      const services = result.stdout
+        .split('\n')
+        .filter(service => service.trim() !== '')
+        .map(service => service.trim())
+      
+      setAvailableServices(services)
+      if (services.length > 0 && !selectedService) {
+        setSelectedService(services[0])
+      }
+    } catch (error) {
+      console.error('Failed to detect services:', error)
+      setAvailableServices(['backend', 'wuzapi']) // Fallback services
+      if (!selectedService) {
+        setSelectedService('backend')
+      }
+    } finally {
+      setServicesLoading(false)
+    }
+  }
+
   const checkServiceStatus = async () => {
     setStatusLoading(true)
     try {
@@ -78,9 +92,21 @@ export default function LogsSection() {
   }
 
   const startLogStream = async () => {
+    if (!selectedService) return
+    
     try {
-      const commandKey = `logs.${currentEnvironment}.${selectedSource}`
-      await actions.startCommandStream(commandKey)
+      // Stop any existing streams first
+      if (isStreaming) {
+        await stopLogStream()
+      }
+      
+      // Create dynamic command for the selected service
+      const command = currentEnvironment === 'production' 
+        ? `ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 "cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs ${selectedService} -f --tail=100"`
+        : `docker compose -f docker-compose.dev.yml logs ${selectedService} -f`
+      
+      // Execute dynamic log streaming
+      await actions.startDynamicCommandStream(command, `logs_${selectedService}`)
       setLogOutput('')
     } catch (error) {
       console.error('Failed to start log stream:', error)
@@ -96,6 +122,14 @@ export default function LogsSection() {
     } catch (error) {
       console.error('Failed to stop log stream:', error)
     }
+  }
+
+  const handleServiceChange = async (newService) => {
+    if (isStreaming) {
+      await stopLogStream()
+    }
+    setSelectedService(newService)
+    setLogOutput('')
   }
 
   return (
@@ -116,29 +150,30 @@ export default function LogsSection() {
           color: '#f1f5f9',
           margin: 0
         }}>
-          📄 Log Monitoring ({currentEnvironment})
+          📄 {currentEnvironment === 'production' ? '🔴 Production' : '🟢 Development'} Logs
         </h2>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <select 
-            value={selectedSource}
-            onChange={(e) => setSelectedSource(e.target.value)}
+          <button 
+            onClick={detectAvailableServices}
+            disabled={servicesLoading}
             style={{
-              background: '#334155',
-              color: '#e2e8f0',
-              border: '1px solid #475569',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              border: 'none',
               borderRadius: '6px',
-              padding: '8px 12px',
               fontSize: '14px',
-              minWidth: '180px'
+              fontWeight: '500',
+              cursor: servicesLoading ? 'not-allowed' : 'pointer',
+              background: servicesLoading ? '#6b7280' : '#8b5cf6',
+              color: 'white',
+              opacity: servicesLoading ? 0.5 : 1
             }}
           >
-            {currentSources.map(source => (
-              <option key={source.value} value={source.value}>
-                {source.label}
-              </option>
-            ))}
-          </select>
+            {servicesLoading ? '🔄' : '🔍'} Detect Services
+          </button>
           
           <button 
             onClick={checkServiceStatus}
@@ -162,27 +197,6 @@ export default function LogsSection() {
           </button>
           
           <button 
-            onClick={startLogStream}
-            disabled={isStreaming}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: isStreaming ? 'not-allowed' : 'pointer',
-              background: isStreaming ? '#6b7280' : '#3b82f6',
-              color: 'white',
-              opacity: isStreaming ? 0.5 : 1
-            }}
-          >
-            ▶️ Start Stream
-          </button>
-          
-          <button 
             onClick={stopLogStream}
             disabled={!isStreaming}
             style={{
@@ -203,6 +217,54 @@ export default function LogsSection() {
             ⏹️ Stop Stream
           </button>
         </div>
+      </div>
+
+      {/* Service Selection */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '20px',
+        alignItems: 'center'
+      }}>
+        <span style={{ color: '#e2e8f0', fontWeight: '500' }}>
+          Service:
+        </span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {availableServices.map(service => (
+            <button
+              key={service}
+              onClick={() => handleServiceChange(service)}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                background: selectedService === service ? '#3b82f6' : '#334155',
+                color: 'white',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (selectedService !== service) {
+                  e.target.style.background = '#475569'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedService !== service) {
+                  e.target.style.background = '#334155'
+                }
+              }}
+            >
+              {service} {selectedService === service && isStreaming && '🟢'}
+            </button>
+          ))}
+        </div>
+        {servicesLoading && (
+          <span style={{ color: '#6b7280', fontSize: '12px' }}>
+            Detecting services...
+          </span>
+        )}
       </div>
 
       {/* Status Panel */}
@@ -232,7 +294,7 @@ export default function LogsSection() {
         background: '#1e293b',
         border: '1px solid #334155',
         borderRadius: '8px',
-        height: serviceStatus ? 'calc(100vh - 350px)' : 'calc(100vh - 200px)',
+        height: serviceStatus ? 'calc(100vh - 400px)' : 'calc(100vh - 280px)',
         overflow: 'hidden'
       }}>
         <div style={{
@@ -244,7 +306,7 @@ export default function LogsSection() {
           alignItems: 'center'
         }}>
           <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-            📄 Live Logs: {currentSources.find(s => s.value === selectedSource)?.label || selectedSource}
+            📄 Live Logs: {selectedService || 'No service selected'}
           </span>
           {isStreaming && (
             <span style={{ color: '#10b981', fontSize: '12px' }}>
@@ -263,7 +325,9 @@ export default function LogsSection() {
         }}>
           {logOutput || (
             <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
-              {isStreaming ? 'Streaming logs...' : 'No logs. Click "Start Stream" to begin monitoring.'}
+              {isStreaming ? 'Streaming logs...' : 
+               selectedService ? 'Select a service to start streaming logs.' : 
+               'Detecting available services...'}
             </div>
           )}
         </div>
