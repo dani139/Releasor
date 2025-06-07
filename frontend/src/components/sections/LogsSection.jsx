@@ -5,6 +5,8 @@ export default function LogsSection() {
   const { actions, activeStreams, currentEnvironment } = useReleasor()
   const [selectedService, setSelectedService] = useState('')
   const [logOutput, setLogOutput] = useState('')
+  const [filteredLogOutput, setFilteredLogOutput] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [serviceStatus, setServiceStatus] = useState('')
   const [statusLoading, setStatusLoading] = useState(false)
   const [availableServices, setAvailableServices] = useState([])
@@ -14,7 +16,20 @@ export default function LogsSection() {
 
   const isStreaming = activeStreams.size > 0
 
-  // Auto-scroll to bottom when log output changes
+  // Filter logs based on search term
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredLogOutput(logOutput)
+    } else {
+      const filtered = logOutput
+        .split('\n')
+        .filter(line => line.toLowerCase().includes(searchTerm.toLowerCase()))
+        .join('\n')
+      setFilteredLogOutput(filtered)
+    }
+  }, [logOutput, searchTerm])
+
+  // Auto-scroll to bottom when filtered log output changes
   useEffect(() => {
     if (logContainerRef.current) {
       setIsAutoScrolling(true)
@@ -24,9 +39,9 @@ export default function LogsSection() {
       const timeout = setTimeout(() => setIsAutoScrolling(false), 500)
       return () => clearTimeout(timeout)
     }
-  }, [logOutput])
+  }, [filteredLogOutput])
 
-  // Detect available services when environment changes
+  // Auto-detect available services when environment changes
   useEffect(() => {
     detectAvailableServices()
   }, [currentEnvironment])
@@ -120,6 +135,7 @@ export default function LogsSection() {
       // Execute dynamic log streaming
       await actions.startDynamicCommandStream(command, `logs_${selectedService}`)
       setLogOutput('')
+      setSearchTerm('') // Clear search when starting new stream
     } catch (error) {
       console.error('Failed to start log stream:', error)
       setLogOutput(`Error starting stream: ${error.message}\n`)
@@ -142,6 +158,7 @@ export default function LogsSection() {
     }
     setSelectedService(newService)
     setLogOutput('')
+    setSearchTerm('') // Clear search when changing service
   }
 
   return (
@@ -166,27 +183,6 @@ export default function LogsSection() {
         </h2>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button 
-            onClick={detectAvailableServices}
-            disabled={servicesLoading}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: servicesLoading ? 'not-allowed' : 'pointer',
-              background: servicesLoading ? '#6b7280' : '#8b5cf6',
-              color: 'white',
-              opacity: servicesLoading ? 0.5 : 1
-            }}
-          >
-            {servicesLoading ? '🔄' : '🔍'} Detect Services
-          </button>
-          
           <button 
             onClick={checkServiceStatus}
             disabled={statusLoading}
@@ -274,7 +270,7 @@ export default function LogsSection() {
         </div>
         {servicesLoading && (
           <span style={{ color: '#6b7280', fontSize: '12px' }}>
-            Detecting services...
+            🔄 Auto-detecting services...
           </span>
         )}
       </div>
@@ -300,13 +296,109 @@ export default function LogsSection() {
           </pre>
         </div>
       )}
+
+      {/* Search Bar */}
+      <div style={{
+        marginBottom: '15px',
+        position: 'relative'
+      }}>
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <span style={{
+            position: 'absolute',
+            left: '12px',
+            color: '#6b7280',
+            fontSize: '16px',
+            zIndex: 1
+          }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search logs... (press Escape to clear)"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSearchTerm('')
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '12px 12px 12px 40px',
+              background: '#1e293b',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              color: '#e2e8f0',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'all 0.2s ease',
+              boxShadow: searchTerm ? '0 0 0 2px rgba(59, 130, 246, 0.3)' : 'none'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#3b82f6'
+              e.target.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.3)'
+            }}
+            onBlur={(e) => {
+              if (!searchTerm) {
+                e.target.style.borderColor = '#334155'
+                e.target.style.boxShadow = 'none'
+              }
+            }}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                background: 'transparent',
+                border: 'none',
+                color: '#6b7280',
+                cursor: 'pointer',
+                fontSize: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+                borderRadius: '50%',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#374151'
+                e.target.style.color = '#e2e8f0'
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'transparent'
+                e.target.style.color = '#6b7280'
+              }}
+              title="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <div style={{
+            marginTop: '5px',
+            fontSize: '12px',
+            color: '#6b7280'
+          }}>
+            Filtering logs containing "{searchTerm}"
+          </div>
+        )}
+      </div>
       
       {/* Log Output */}
       <div style={{
         background: '#1e293b',
         border: '1px solid #334155',
         borderRadius: '8px',
-        height: serviceStatus ? 'calc(100vh - 400px)' : 'calc(100vh - 280px)',
+        height: serviceStatus ? 'calc(100vh - 480px)' : 'calc(100vh - 360px)',
         overflow: 'hidden'
       }}>
         <div style={{
@@ -331,6 +423,11 @@ export default function LogsSection() {
                 ↓ Auto-scrolling
               </span>
             )}
+            {searchTerm && (
+              <span style={{ color: '#f59e0b', fontSize: '12px' }}>
+                🔍 Filtered
+              </span>
+            )}
           </div>
         </div>
         <div 
@@ -344,11 +441,11 @@ export default function LogsSection() {
             lineHeight: '1.4',
             whiteSpace: 'pre-wrap'
           }}>
-          {logOutput || (
+          {filteredLogOutput || (
             <div style={{ color: '#6b7280', fontStyle: 'italic' }}>
               {isStreaming ? 'Streaming logs...' : 
                selectedService ? 'Select a service to start streaming logs.' : 
-               'Detecting available services...'}
+               'Auto-detecting available services...'}
             </div>
           )}
         </div>
