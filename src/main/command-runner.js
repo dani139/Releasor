@@ -275,6 +275,140 @@ class CommandRunner extends EventEmitter {
       environment: stream.environment
     }));
   }
+
+  // Container management methods
+  async startContainer(containerName, environment) {
+    try {
+      const command = this.config.commands.container[environment].start;
+      const actualCommand = command.replace('{service}', containerName);
+      return await this.executeContainerCommand(actualCommand);
+    } catch (error) {
+      throw new Error(`Failed to start container ${containerName}: ${error.message}`);
+    }
+  }
+
+  async stopContainer(containerName, environment) {
+    try {
+      const command = this.config.commands.container[environment].stop;
+      const actualCommand = command.replace('{service}', containerName);
+      return await this.executeContainerCommand(actualCommand);
+    } catch (error) {
+      throw new Error(`Failed to stop container ${containerName}: ${error.message}`);
+    }
+  }
+
+  async restartContainer(containerName, environment) {
+    try {
+      const command = this.config.commands.container[environment].restart;
+      const actualCommand = command.replace('{service}', containerName);
+      return await this.executeContainerCommand(actualCommand);
+    } catch (error) {
+      throw new Error(`Failed to restart container ${containerName}: ${error.message}`);
+    }
+  }
+
+  async getContainerStatus(containerName, environment) {
+    try {
+      const command = this.config.commands.container[environment].status;
+      const actualCommand = command.replace('{service}', containerName);
+      const result = await this.executeContainerCommand(actualCommand);
+      
+      // Parse the result to determine if container is running
+      const output = result.stdout.toLowerCase();
+      const isRunning = output.includes('up') || output.includes('running');
+      
+      return {
+        name: containerName,
+        status: isRunning ? 'running' : 'stopped',
+        rawOutput: result.stdout,
+        timestamp: result.timestamp
+      };
+    } catch (error) {
+      return {
+        name: containerName,
+        status: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async getAllContainersStatus(environment) {
+    try {
+      const containers = this.config.containers[environment] || [];
+      const statusPromises = containers.map(container => 
+        this.getContainerStatus(container.service, environment)
+      );
+      
+      const statuses = await Promise.all(statusPromises);
+      
+      // Map status results back to container config
+      return containers.map((container, index) => ({
+        ...container,
+        status: statuses[index].status,
+        error: statuses[index].error,
+        timestamp: statuses[index].timestamp
+      }));
+    } catch (error) {
+      throw new Error(`Failed to get containers status: ${error.message}`);
+    }
+  }
+
+  async executeContainerCommand(command) {
+    return new Promise((resolve, reject) => {
+      try {
+        const [cmd, ...args] = command.split(' ');
+
+        const options = {
+          shell: true,
+          stdio: ['pipe', 'pipe', 'pipe']
+        };
+
+        // Use working directory from config if available
+        if (this.config.working_directory) {
+          options.cwd = this.config.working_directory;
+        }
+
+        const process = spawn(cmd, args, options);
+
+        let stdout = '';
+        let stderr = '';
+
+        process.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        process.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        process.on('close', (code) => {
+          resolve({
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+            exitCode: code,
+            command,
+            timestamp: new Date().toISOString()
+          });
+        });
+
+        process.on('error', (error) => {
+          reject(new Error(`Failed to execute container command: ${error.message}`));
+        });
+
+        // Kill process after 15 seconds for container commands
+        setTimeout(() => {
+          if (!process.killed) {
+            process.kill();
+            reject(new Error('Container command timed out after 15 seconds'));
+          }
+        }, 15000);
+
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
 }
 
 module.exports = CommandRunner; 

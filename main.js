@@ -29,9 +29,16 @@ function createWindow() {
 
   // Point to Vite dev server in dev, or built index.html in prod
   const isDev = !app.isPackaged;
-  const url = isDev
-    ? 'http://localhost:5173'
+  const isTest = process.env.NODE_ENV === 'test' || process.argv.includes('--test');
+  
+  // In test mode, always use the built version
+  // Use environment variable for port or try common ports
+  const devPort = process.env.VITE_PORT || '5175';
+  const url = (isDev && !isTest)
+    ? `http://localhost:${devPort}`
     : `file://${path.join(__dirname, 'frontend/dist/index.html')}`;
+  
+  console.log(`Loading URL: ${url} (isDev: ${isDev}, isTest: ${isTest})`);
   
   mainWindow.loadURL(url);
 
@@ -40,8 +47,8 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // Development tools
-  if (isDev) {
+  // Development tools - don't open during tests
+  if (isDev && !isTest) {
     mainWindow.webContents.openDevTools();
   }
 }
@@ -71,6 +78,52 @@ function setupIpcHandlers() {
   ipcMain.handle('execute-command', async (event, commandKey, environment = null) => {
     try {
       const result = await commandRunner.execute(commandKey, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Container operations
+  ipcMain.handle('start-container', async (event, containerName, environment) => {
+    try {
+      const result = await commandRunner.startContainer(containerName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('stop-container', async (event, containerName, environment) => {
+    try {
+      const result = await commandRunner.stopContainer(containerName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('restart-container', async (event, containerName, environment) => {
+    try {
+      const result = await commandRunner.restartContainer(containerName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-container-status', async (event, containerName, environment) => {
+    try {
+      const result = await commandRunner.getContainerStatus(containerName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-all-containers-status', async (event, environment) => {
+    try {
+      const result = await commandRunner.getAllContainersStatus(environment);
       return { success: true, data: result };
     } catch (error) {
       return { success: false, error: error.message };

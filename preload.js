@@ -16,6 +16,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopCommandStream: (streamId) => 
     ipcRenderer.invoke('stop-command-stream', streamId),
 
+  // Container operations
+  startContainer: (containerName, environment) => 
+    ipcRenderer.invoke('start-container', containerName, environment),
+  
+  stopContainer: (containerName, environment) => 
+    ipcRenderer.invoke('stop-container', containerName, environment),
+  
+  restartContainer: (containerName, environment) => 
+    ipcRenderer.invoke('restart-container', containerName, environment),
+  
+  getContainerStatus: (containerName, environment) => 
+    ipcRenderer.invoke('get-container-status', containerName, environment),
+  
+  getAllContainersStatus: (environment) => 
+    ipcRenderer.invoke('get-all-containers-status', environment),
+
   // Configuration
   getConfig: () => 
     ipcRenderer.invoke('get-config'),

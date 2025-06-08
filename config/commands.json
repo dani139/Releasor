@@ -9,8 +9,62 @@
       "color": "#ef4444"
     }
   },
+  "containers": {
+    "development": [
+      {
+        "name": "backend",
+        "displayName": "Backend API",
+        "service": "backend"
+      },
+      {
+        "name": "postgres",
+        "displayName": "PostgreSQL DB",
+        "service": "postgres"
+      },
+      {
+        "name": "wuzapi",
+        "displayName": "WhatsApp API",
+        "service": "wuzapi"
+      }
+    ],
+    "production": [
+      {
+        "name": "backend",
+        "displayName": "Backend API",
+        "service": "backend"
+      },
+      {
+        "name": "postgres",
+        "displayName": "PostgreSQL DB", 
+        "service": "postgres"
+      },
+      {
+        "name": "wuzapi",
+        "displayName": "WhatsApp API",
+        "service": "wuzapi"
+      }
+    ]
+  },
   "working_directory": "/home/danil/Projects/chatwithoats",
   "commands": {
+    "container": {
+      "development": {
+        "start": "docker compose -f docker-compose.dev.yml up -d {service}",
+        "stop": "docker compose -f docker-compose.dev.yml stop {service}",
+        "restart": "docker compose -f docker-compose.dev.yml restart {service}",
+        "status": "docker compose -f docker-compose.dev.yml ps {service}",
+        "start_all": "docker compose -f docker-compose.dev.yml up -d",
+        "stop_all": "docker compose -f docker-compose.dev.yml down"
+      },
+      "production": {
+        "start": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml up -d {service}\"",
+        "stop": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml stop {service}\"",
+        "restart": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml restart {service}\"",
+        "status": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps {service}\"",
+        "start_all": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml up -d\"",
+        "stop_all": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml down\""
+      }
+    },
     "logs": {
       "development": {
         "backend": "docker compose -f docker-compose.dev.yml logs backend -f",

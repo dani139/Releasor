@@ -9,6 +9,7 @@
     "vite": "cd frontend && npm run dev",
     "electron-dev": "cross-env NODE_ENV=development electron .",
     "test": "node tests/basic.spec.js",
+    "test-ui": "concurrently --kill-others-on-fail \"npm run vite\" \"sleep 3 && electron test_ui.js\"",
     "build": "cd frontend && npm run build",
     "build:electron": "electron-builder",
     "build:win": "electron-builder --win",

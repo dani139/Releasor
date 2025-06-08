@@ -1,7 +1,7 @@
 import { useReleasor } from '../context/ReleasorContext'
 
 const navItems = [
-  { id: 'logs', icon: '📄', label: 'Logs' },
+  { id: 'logs', icon: '🔧', label: 'Services' },
   { id: 'deployment', icon: '🚀', label: 'Deployment' },
   { id: 'testing', icon: '🧪', label: 'Testing' },
   { id: 'database', icon: '🗄️', label: 'Database' },

@@ -1,143 +1,264 @@
 # Releasor 🚀
 
-An AI-powered monitoring and testing tool designed to streamline development and production workflows by intelligent log monitoring, production system oversight, and automated testing.
+A modern Electron-based monitoring and testing tool for development and production environments with real-time log streaming and intelligent Docker container management.
 
 ## Overview
 
-Releasor is a comprehensive monitoring solution that leverages artificial intelligence to:
-- **Monitor logs** across development and production environments
-- **Track production system health** and performance metrics
-- **Execute automated tests** with AI-driven analysis and decision making
+Releasor is a desktop application built with **Electron**, **React**, and **Vite** that provides:
+- **Real-time log monitoring** for Docker containers across dev/production environments
+- **SSH-based production monitoring** with secure remote log streaming  
+- **Intelligent container discovery** and automatic service detection
+- **Hot-reloading development environment** for rapid iteration
+- **Configurable command system** with JSON-based configuration
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Electron Main Process                    │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │  Command Runner │  │   IPC Handlers  │  │   Window    │ │
+│  │     Backend     │  │                 │  │  Manager    │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                                │
+                    ┌─────────────────┐
+                    │    Preload      │
+                    │   (Security)    │
+                    └─────────────────┘
+                                │
+┌─────────────────────────────────────────────────────────────┐
+│                   Renderer Process (React)                  │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │   Header        │  │    Sidebar      │  │   Content   │ │
+│  │ (Environment)   │  │  (Navigation)   │  │   Sections  │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │  Logs Section   │  │ Deployment      │  │   Config    │ │
+│  │ (Real-time)     │  │   Section       │  │   Modal     │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Features
 
-### 📊 Log Monitoring
-- Real-time log analysis across multiple environments
-- AI-powered anomaly detection in log patterns
-- Intelligent alerting based on log severity and patterns
-- Support for various log formats and sources
+### 🔄 Real-Time Log Streaming
+- Live Docker container log monitoring
+- Support for both development and production environments
+- SSH-based secure production log streaming
+- Automatic timestamp formatting and stream management
 
-### 🔍 Production Monitoring
-- System health monitoring and metrics collection
-- Performance tracking and bottleneck identification
-- Automated incident detection and escalation
-- Dashboard for real-time production insights
+### 🐳 Docker Integration
+- Development: Direct `docker compose` command execution
+- Production: SSH-based remote Docker container monitoring
+- Container status checking before log streaming
+- Support for multiple services (backend, wuzapi, etc.)
 
-### 🧪 AI-Powered Testing
-- Intelligent test case generation and execution
-- Automated regression testing with AI analysis
-- Smart test result interpretation and reporting
-- Continuous testing pipeline integration
+### ⚙️ Configuration Management  
+- JSON-based command configuration (`config/commands.json`)
+- Environment-specific command sets (dev/production)
+- Editable configuration through built-in modal
+- Working directory support for project-specific commands
+
+### 🖥️ Modern UI
+- React-based responsive interface
+- Environment switching (Development/Production)
+- Service selection and status monitoring
+- Real-time log display with auto-scrolling
 
 ## Getting Started
 
 ### Prerequisites
-- Python 3.8+
-- Docker (optional, for containerized deployments)
-- Access to target systems for monitoring
+- **Node.js** 16+ and npm
+- **Docker** and Docker Compose for development
+- **SSH access** to production servers (if monitoring production)
+- Linux/macOS environment (Windows support via WSL)
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/releasor.git
-cd releasor
+git clone https://github.com/dani139/Releasor.git
+cd Releasor
 
 # Install dependencies
-pip install -r requirements.txt
+npm install
 
-# Configure your environment
-cp config.example.yml config.yml
-# Edit config.yml with your specific settings
+# Configure your commands (optional)
+# Edit config/commands.json with your specific Docker commands and SSH details
 ```
 
-### Configuration
+### Development Setup
 
-Create a `config.yml` file with your monitoring targets:
+The application uses Vite for hot reloading during development:
 
-```yaml
-environments:
-  development:
-    log_sources: []
-    endpoints: []
-  production:
-    log_sources: []
-    endpoints: []
-    
-ai_settings:
-  model: "gpt-4"
-  api_key: "your-api-key"
-  
-monitoring:
-  interval: 60  # seconds
-  alert_thresholds: {}
+```bash
+# Start development mode (with hot reload)
+npm run dev
+```
+
+This will:
+1. Start the Vite dev server on `http://localhost:5173`
+2. Launch Electron with hot reloading enabled
+3. Enable automatic refresh when code changes
+
+### Production Build
+
+```bash
+# Build the application
+npm run build
+
+# The built application will be in the dist/ directory
+```
+
+### Testing
+
+```bash
+# Run the test suite (Playwright)
+npm run test
+```
+
+## Configuration
+
+### Commands Configuration
+
+Edit `config/commands.json` to customize your monitoring commands:
+
+```json
+{
+  "development": {
+    "workingDirectory": "/path/to/your/project",
+    "services": {
+      "backend": {
+        "logs": "docker compose -f docker-compose.dev.yml logs backend -f",
+        "status": "docker compose -f docker-compose.dev.yml ps"
+      }
+    }
+  },
+  "production": {
+    "workingDirectory": "/path/to/your/project", 
+    "services": {
+      "backend": {
+        "logs": "ssh -i aws_key.pem user@server 'docker compose logs backend -f --tail=100'",
+        "status": "ssh -i aws_key.pem user@server 'docker compose ps'"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+Create a `.env` file for sensitive configuration:
+
+```bash
+# Production SSH details
+PROD_SSH_KEY=/path/to/your/ssh/key.pem
+PROD_SSH_USER=ec2-user
+PROD_SSH_HOST=your-server-ip
+
+# Development settings
+DEV_COMPOSE_FILE=docker-compose.dev.yml
+PROD_COMPOSE_FILE=docker-compose.prod.yml
 ```
 
 ## Usage
 
-### Start Monitoring
+### Starting the Application
+
 ```bash
-python releasor.py --mode monitor --env production
+npm run dev  # Development with hot reload
+# or
+npm start    # Production mode
 ```
 
-### Run AI Tests
-```bash
-python releasor.py --mode test --suite regression
+### Using the Interface
+
+1. **Environment Selection**: Choose between Development and Production in the header
+2. **Service Selection**: Pick which Docker service to monitor from the sidebar
+3. **Log Streaming**: Logs automatically stream in real-time when a service is selected
+4. **Configuration**: Use the config button to edit command settings
+5. **Navigation**: Use the sidebar to switch between different monitoring sections
+
+### Working Directory
+
+The application respects the `workingDirectory` setting in your configuration. Commands will be executed from this directory, which is useful for:
+- Finding your `docker-compose.yml` files
+- Locating SSH keys for production access
+- Running project-specific scripts
+
+## Project Structure
+
+```
+Releasor/
+├── frontend/                 # React + Vite frontend
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   ├── context/          # React context providers
+│   │   └── main.jsx         # React entry point
+│   ├── index.html           # Vite HTML template
+│   └── vite.config.js       # Vite configuration
+├── src/main/                # Electron main process
+│   └── command-runner.js    # Backend command execution
+├── config/
+│   └── commands.json        # Command configuration
+├── tests/                   # Playwright test files
+├── main.js                  # Electron main process entry
+├── preload.js              # Electron preload script
+└── package.json            # Dependencies and scripts
 ```
 
-### View Dashboard
-```bash
-python releasor.py --mode dashboard --port 8080
-```
+## Scripts
 
-## Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Log Sources   │    │  System Metrics │    │   Test Suites   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │   AI Engine     │
-                    │  (Analysis &    │
-                    │   Decision)     │
-                    └─────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │   Dashboard     │
-                    │   & Alerts      │
-                    └─────────────────┘
-```
+- `npm run dev` - Start development with hot reload
+- `npm run build` - Build production version  
+- `npm run test` - Run Playwright tests
+- `npm start` - Start production application
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Make your changes with hot reloading: `npm run dev`
+4. Run tests: `npm run test`
+5. Commit your changes (`git commit -m 'Add some amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
-## Roadmap
+## Troubleshooting
 
-- [ ] Multi-cloud monitoring support
-- [ ] Advanced ML models for predictive analysis
-- [ ] Integration with popular CI/CD platforms
-- [ ] Mobile app for on-the-go monitoring
-- [ ] Custom plugin architecture
+### Common Issues
+
+**Hot reload not working**: Make sure Vite dev server is running on port 5173
+**SSH connection fails**: Check your SSH key permissions and server access
+**Docker commands fail**: Verify Docker is running and compose files exist
+**Commands not found**: Check the `workingDirectory` setting in config
+
+### Development Tips
+
+- Use `npm run dev` for the best development experience
+- Check the Electron DevTools (Ctrl+Shift+I) for debugging
+- Monitor the terminal for backend command output and errors
+- Test configuration changes through the built-in config modal
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## Repository
 
-For support and questions:
-- Create an issue in this repository
-- Check the [Wiki](wiki) for detailed documentation
-- Join our [Discord community](link-to-discord)
+- **GitHub**: [dani139/Releasor](https://github.com/dani139/Releasor)
+- **Issues**: Report bugs and request features via GitHub Issues
 
 ---
 
-**Releasor** - Making production monitoring and testing intelligent, one release at a time. 🤖✨ 
+**Releasor** - Modern monitoring made simple with Electron, React, and real-time streaming. 🖥️⚡ 
+
+
+## Current
+
+for frontend, dev in config, have optiont to define how to run it, it shou7ld have
+(cd frontend && npm run dev-clean &)
+so when click run on the frontend (like the other dockers for dev).
+for getting status, also put in config how ever status get be retreived from this frtonend process, and also for logs, put command that gets logs for this.
+

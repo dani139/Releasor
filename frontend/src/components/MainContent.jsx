@@ -1,5 +1,5 @@
 import { useReleasor } from '../context/ReleasorContext'
-import LogsSection from './sections/LogsSection'
+import ServicesSection from './sections/LogsSection'
 import DeploymentSection from './sections/DeploymentSection'
 import TestingSection from './sections/TestingSection'
 import DatabaseSection from './sections/DatabaseSection'
@@ -11,7 +11,7 @@ export default function MainContent() {
   const renderSection = () => {
     switch (currentSection) {
       case 'logs':
-        return <LogsSection />
+        return <ServicesSection />
       case 'deployment':
         return <DeploymentSection />
       case 'testing':
@@ -21,7 +21,7 @@ export default function MainContent() {
       case 'system':
         return <SystemSection />
       default:
-        return <LogsSection />
+        return <ServicesSection />
     }
   }
 
