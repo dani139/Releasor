@@ -6,6 +6,7 @@ import { FaPlay, FaStop, FaRedo, FaSyncAlt, FaPlayCircle, FaStopCircle, FaTermin
 export default function ServicesSection() {
   const { currentEnvironment, config, actions } = useReleasor();
   const [selectedService, setSelectedService] = useState('');
+  const [selectedServiceInfo, setSelectedServiceInfo] = useState(null);
   const [logs, setLogs] = useState([]);
   const [currentStreamId, setCurrentStreamId] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -33,26 +34,39 @@ export default function ServicesSection() {
     
     return containers.map(container => {
       // Map container names to appropriate icons and descriptions
-      const getServiceInfo = (name) => {
+      const getServiceInfo = (name, containerData) => {
         const lowerName = name.toLowerCase();
+        // Extract ports from container data if available
+        const extractPort = () => {
+          if (containerData.ports && containerData.ports.length > 0) {
+            return containerData.ports[0].split(':')[0]; // Get host port
+          }
+          // Default ports based on service type
+          if (lowerName.includes('backend') || lowerName.includes('api')) return '8000';
+          if (lowerName.includes('postgres') || lowerName.includes('db')) return '5432';
+          if (lowerName.includes('wuzapi')) return '3000';
+          return '8000';
+        };
+
         if (lowerName.includes('backend') || lowerName.includes('api')) {
-          return { icon: FaServer, description: 'Main application server', port: '8000' };
+          return { icon: FaServer, description: 'Main application server', port: extractPort() };
         } else if (lowerName.includes('postgres') || lowerName.includes('db')) {
-          return { icon: FaDatabase, description: 'Primary database', port: '5432' };
-        } else if (lowerName.includes('wuzapi') || lowerName.includes('whatsapp')) {
-          return { icon: FaTerminal, description: 'WhatsApp integration', port: '8080' };
+          return { icon: FaDatabase, description: 'Primary database', port: extractPort() };
+        } else if (lowerName.includes('wuzapi')) {
+          return { icon: FaTerminal, description: 'WhatsApp integration', port: extractPort() };
         } else {
-          return { icon: FaServer, description: 'Service', port: '8000' };
+          return { icon: FaServer, description: 'Service', port: extractPort() };
         }
       };
       
-      const serviceInfo = getServiceInfo(container.name);
+      const serviceInfo = getServiceInfo(container.name, container);
       return {
         id: container.name,
         name: container.name,
         description: serviceInfo.description,
         icon: serviceInfo.icon,
-        port: serviceInfo.port
+        port: serviceInfo.port,
+        containerInfo: container
       };
     });
   };
@@ -120,6 +134,13 @@ export default function ServicesSection() {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  // Handle service row click
+  const handleServiceClick = async (service) => {
+    setSelectedService(service.id);
+    setSelectedServiceInfo(service.containerInfo);
+    await startLogStream(service.id);
   };
 
   // Start log streaming for selected service
@@ -459,13 +480,17 @@ export default function ServicesSection() {
                 return (
                   <tr key={service.id} style={{ 
                     borderBottom: index < services.length - 1 ? '1px solid #f1f5f9' : 'none',
-                    transition: 'background-color 0.15s'
+                    transition: 'background-color 0.15s, transform 0.15s',
+                    cursor: 'pointer'
                   }}
+                  onClick={() => handleServiceClick(service)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#f8fafc';
+                    e.currentTarget.style.transform = 'scale(1.01)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
                   }}>
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ 
@@ -526,7 +551,10 @@ export default function ServicesSection() {
                         {isRunning ? (
                           <>
                             <button
-                              onClick={() => startLogStream(service.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startLogStream(service.id);
+                              }}
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -555,7 +583,10 @@ export default function ServicesSection() {
                             </button>
                             
                             <button
-                              onClick={() => handleRestartContainer(service.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRestartContainer(service.id);
+                              }}
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -584,7 +615,10 @@ export default function ServicesSection() {
                             </button>
                             
                             <button
-                              onClick={() => handleStopContainer(service.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStopContainer(service.id);
+                              }}
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -614,7 +648,10 @@ export default function ServicesSection() {
                           </>
                         ) : (
                           <button
-                            onClick={() => handleStartContainer(service.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartContainer(service.id);
+                            }}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -651,6 +688,96 @@ export default function ServicesSection() {
           </table>
         </div>
       </div>
+
+      {/* Service Info Panel */}
+      {selectedServiceInfo && (
+        <div style={{
+          margin: '0 24px 24px 24px',
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '16px 20px',
+            backgroundColor: '#f8fafc',
+            borderBottom: '1px solid #e5e7eb'
+          }}>
+            <h3 style={{ 
+              margin: 0, 
+              fontSize: '16px', 
+              fontWeight: '600',
+              color: '#1f2937'
+            }}>
+              Service Information: {selectedService}
+            </h3>
+          </div>
+          
+          <div style={{
+            padding: '20px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '20px'
+          }}>
+            <div>
+              <h4 style={{ 
+                margin: '0 0 8px 0', 
+                fontSize: '14px', 
+                fontWeight: '600',
+                color: '#374151'
+              }}>
+                Container Details
+              </h4>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.5' }}>
+                <div><strong>Name:</strong> {selectedServiceInfo.name || 'N/A'}</div>
+                <div><strong>Status:</strong> {selectedServiceInfo.status || 'N/A'}</div>
+                <div><strong>Image:</strong> {selectedServiceInfo.image || 'N/A'}</div>
+                <div><strong>Created:</strong> {selectedServiceInfo.created ? new Date(selectedServiceInfo.created).toLocaleString() : 'N/A'}</div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 style={{ 
+                margin: '0 0 8px 0', 
+                fontSize: '14px', 
+                fontWeight: '600',
+                color: '#374151'
+              }}>
+                Network & Ports
+              </h4>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.5' }}>
+                <div><strong>Ports:</strong> {selectedServiceInfo.ports ? selectedServiceInfo.ports.join(', ') : 'N/A'}</div>
+                <div><strong>Networks:</strong> {selectedServiceInfo.networks ? selectedServiceInfo.networks.join(', ') : 'N/A'}</div>
+              </div>
+            </div>
+            
+            {selectedServiceInfo.command && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <h4 style={{ 
+                  margin: '0 0 8px 0', 
+                  fontSize: '14px', 
+                  fontWeight: '600',
+                  color: '#374151'
+                }}>
+                  Command
+                </h4>
+                <div style={{ 
+                  fontSize: '13px', 
+                  color: '#6b7280',
+                  backgroundColor: '#f3f4f6',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontFamily: 'monospace',
+                  wordBreak: 'break-all'
+                }}>
+                  {selectedServiceInfo.command}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Log Display Area */}
       {selectedService && (
