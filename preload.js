@@ -32,6 +32,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAllContainersStatus: (environment) => 
     ipcRenderer.invoke('get-all-containers-status', environment),
 
+  // Service operations (for non-Docker services)
+  startService: (serviceName, environment) => 
+    ipcRenderer.invoke('start-service', serviceName, environment),
+  
+  stopService: (serviceName, environment) => 
+    ipcRenderer.invoke('stop-service', serviceName, environment),
+  
+  getServiceStatus: (serviceName, environment) => 
+    ipcRenderer.invoke('get-service-status', serviceName, environment),
+
   // Configuration
   getConfig: () => 
     ipcRenderer.invoke('get-config'),

@@ -130,6 +130,34 @@ function setupIpcHandlers() {
     }
   });
 
+  // Service operations
+  ipcMain.handle('start-service', async (event, serviceName, environment) => {
+    try {
+      const result = await commandRunner.startService(serviceName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('stop-service', async (event, serviceName, environment) => {
+    try {
+      const result = await commandRunner.stopService(serviceName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-service-status', async (event, serviceName, environment) => {
+    try {
+      const result = await commandRunner.getServiceStatus(serviceName, environment);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // Get command output stream
   ipcMain.handle('start-command-stream', async (event, commandKey, environment = null) => {
     try {

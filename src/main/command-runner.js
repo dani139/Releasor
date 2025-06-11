@@ -287,6 +287,57 @@ class CommandRunner extends EventEmitter {
     }
   }
 
+  // Service management methods (for non-Docker services like frontend)
+  async startService(serviceName, environment) {
+    try {
+      const serviceConfig = this.config.commands.service[environment][serviceName];
+      if (!serviceConfig) {
+        throw new Error(`Service ${serviceName} not found in ${environment} environment`);
+      }
+      return await this.executeContainerCommand(serviceConfig.start);
+    } catch (error) {
+      throw new Error(`Failed to start service ${serviceName}: ${error.message}`);
+    }
+  }
+
+  async stopService(serviceName, environment) {
+    try {
+      const serviceConfig = this.config.commands.service[environment][serviceName];
+      if (!serviceConfig) {
+        throw new Error(`Service ${serviceName} not found in ${environment} environment`);
+      }
+      return await this.executeContainerCommand(serviceConfig.stop);
+    } catch (error) {
+      throw new Error(`Failed to stop service ${serviceName}: ${error.message}`);
+    }
+  }
+
+  async getServiceStatus(serviceName, environment) {
+    try {
+      const serviceConfig = this.config.commands.service[environment][serviceName];
+      if (!serviceConfig) {
+        throw new Error(`Service ${serviceName} not found in ${environment} environment`);
+      }
+      
+      const result = await this.executeContainerCommand(serviceConfig.status);
+      const status = result.stdout.trim().toLowerCase().includes('running') ? 'running' : 'stopped';
+      
+      return {
+        name: serviceName,
+        status: status,
+        rawOutput: result.stdout,
+        timestamp: result.timestamp
+      };
+    } catch (error) {
+      return {
+        name: serviceName,
+        status: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
   async stopContainer(containerName, environment) {
     try {
       const command = this.config.commands.container[environment].stop;
@@ -335,22 +386,113 @@ class CommandRunner extends EventEmitter {
 
   async getAllContainersStatus(environment) {
     try {
-      const containers = this.config.containers[environment] || [];
-      const statusPromises = containers.map(container => 
-        this.getContainerStatus(container.service, environment)
-      );
+      // Get detailed container info using docker compose ps --format json
+      let command;
+      if (environment === 'development') {
+        command = 'docker compose -f docker-compose.dev.yml ps --format json';
+      } else {
+        command = this.config.commands.status[environment].docker_status + ' --format json';
+      }
+
+      const options = {
+        shell: true,
+        stdio: ['pipe', 'pipe', 'pipe']
+      };
+
+      if (this.config.working_directory) {
+        options.cwd = this.config.working_directory;
+      }
+
+      const result = await this.executeContainerCommand(command);
       
-      const statuses = await Promise.all(statusPromises);
-      
-      // Map status results back to container config
-      return containers.map((container, index) => ({
-        ...container,
-        status: statuses[index].status,
-        error: statuses[index].error,
-        timestamp: statuses[index].timestamp
-      }));
+      if (!result.stdout) {
+        return [];
+      }
+
+      // Parse each line as JSON (docker compose returns one JSON object per line)
+      const lines = result.stdout.trim().split('\n').filter(line => line.trim());
+      const containerDetails = lines.map(line => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          console.error('Failed to parse container JSON:', line, error);
+          return null;
+        }
+      }).filter(Boolean);
+
+             // Transform the detailed data into our format and get full command info
+       const enrichedContainers = await Promise.all(containerDetails.map(async container => {
+         // Extract port mappings
+         const ports = [];
+         if (container.Publishers && Array.isArray(container.Publishers)) {
+           container.Publishers.forEach(pub => {
+             if (pub.PublishedPort && pub.PublishedPort > 0) {
+               ports.push(`${pub.URL || '0.0.0.0'}:${pub.PublishedPort}->${pub.TargetPort}/${pub.Protocol}`);
+             }
+           });
+         }
+
+         // Get full command using docker inspect
+         let fullCommand = container.Command;
+         try {
+           const containerName = container.Name || container.Names;
+           const inspectCmd = `docker inspect ${containerName} --format='{{.Path}} {{join .Args " "}}'`;
+           const inspectResult = await this.executeContainerCommand(inspectCmd);
+           if (inspectResult.stdout && inspectResult.stdout.trim()) {
+             fullCommand = inspectResult.stdout.trim();
+           }
+         } catch (error) {
+           console.warn('Failed to get full command for', container.Name, error.message);
+         }
+
+         return {
+           name: container.Name || container.Names,
+           service: container.Service,
+           displayName: container.Service ? 
+             (container.Service.charAt(0).toUpperCase() + container.Service.slice(1)) : 
+             (container.Name || container.Names),
+           status: container.State === 'running' ? 'running' : 
+                   container.State === 'exited' ? 'stopped' : 
+                   container.State || 'unknown',
+           image: container.Image,
+           command: fullCommand,
+           created: container.CreatedAt,
+           ports: ports,
+           health: container.Health,
+           project: container.Project,
+           networks: container.Networks,
+           runningFor: container.RunningFor,
+           size: container.Size,
+           timestamp: new Date().toISOString(),
+           rawStatus: container.Status,
+           id: container.ID
+         };
+       }));
+
+       return enrichedContainers;
     } catch (error) {
-      throw new Error(`Failed to get containers status: ${error.message}`);
+      console.error('Error getting container status:', error);
+      // Fallback to basic status if detailed command fails
+      try {
+        const containers = this.config.containers[environment] || [];
+        const statusPromises = containers.map(container => 
+          this.getContainerStatus(container.service, environment)
+        );
+        
+        const statuses = await Promise.all(statusPromises);
+        
+        return containers.map((container, index) => ({
+          ...container,
+          status: statuses[index].status,
+          error: statuses[index].error,
+          timestamp: statuses[index].timestamp,
+          ports: [],
+          image: 'unknown',
+          health: ''
+        }));
+      } catch (fallbackError) {
+        throw new Error(`Failed to get containers status: ${error.message}`);
+      }
     }
   }
 

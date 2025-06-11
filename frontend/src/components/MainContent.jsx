@@ -4,6 +4,7 @@ import DeploymentSection from './sections/DeploymentSection'
 import TestingSection from './sections/TestingSection'
 import DatabaseSection from './sections/DatabaseSection'
 import SystemSection from './sections/SystemSection'
+import ErrorBoundary from './ErrorBoundary'
 
 export default function MainContent() {
   const { currentSection } = useReleasor()
@@ -11,17 +12,17 @@ export default function MainContent() {
   const renderSection = () => {
     switch (currentSection) {
       case 'logs':
-        return <ServicesSection />
+        return <ErrorBoundary><ServicesSection /></ErrorBoundary>
       case 'deployment':
-        return <DeploymentSection />
+        return <ErrorBoundary><DeploymentSection /></ErrorBoundary>
       case 'testing':
-        return <TestingSection />
+        return <ErrorBoundary><TestingSection /></ErrorBoundary>
       case 'database':
-        return <DatabaseSection />
+        return <ErrorBoundary><DatabaseSection /></ErrorBoundary>
       case 'system':
-        return <SystemSection />
+        return <ErrorBoundary><SystemSection /></ErrorBoundary>
       default:
-        return <ServicesSection />
+        return <ErrorBoundary><ServicesSection /></ErrorBoundary>
     }
   }
 

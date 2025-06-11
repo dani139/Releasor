@@ -262,3 +262,24 @@ for frontend, dev in config, have optiont to define how to run it, it shou7ld ha
 so when click run on the frontend (like the other dockers for dev).
 for getting status, also put in config how ever status get be retreived from this frtonend process, and also for logs, put command that gets logs for this.
 
+- button to open in browser the web server 
+- remove the main application serve text descitption
+
+for database impl use
+mui-datatables for table display
+
+pg for backend Postgres access
+
+Electron IPC for secure communication between UI and Node backend
+
+🧱 1. Install Required Packages
+📦 Frontend (React)
+bash
+Copy
+Edit
+npm install mui-datatables @mui/material @emotion/react @emotion/styled
+📦 Backend (Electron Main)
+bash
+Copy
+Edit
+npm install pg

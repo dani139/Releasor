@@ -9,39 +9,22 @@
       "color": "#ef4444"
     }
   },
-  "containers": {
+  "docker_services": [
+    "backend",
+    "postgres", 
+    "wuzapi"
+  ],
+  "services": {
     "development": [
       {
-        "name": "backend",
-        "displayName": "Backend API",
-        "service": "backend"
-      },
-      {
-        "name": "postgres",
-        "displayName": "PostgreSQL DB",
-        "service": "postgres"
-      },
-      {
-        "name": "wuzapi",
-        "displayName": "WhatsApp API",
-        "service": "wuzapi"
+        "name": "frontend",
+        "type": "frontend"
       }
     ],
     "production": [
       {
-        "name": "backend",
-        "displayName": "Backend API",
-        "service": "backend"
-      },
-      {
-        "name": "postgres",
-        "displayName": "PostgreSQL DB", 
-        "service": "postgres"
-      },
-      {
-        "name": "wuzapi",
-        "displayName": "WhatsApp API",
-        "service": "wuzapi"
+        "name": "frontend",
+        "type": "frontend"
       }
     ]
   },
@@ -65,18 +48,38 @@
         "stop_all": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml down\""
       }
     },
+    "service": {
+      "development": {
+        "frontend": {
+          "start": "pkill -f 'next dev --port 3000' 2>/dev/null; pkill -f 'next-server' 2>/dev/null; sleep 2; cd frontend && npm run dev-clean > ../logs/frontend-dev.log 2>&1 &",
+          "stop": "pkill -f 'next dev --port 3000' 2>/dev/null; pkill -f 'next-server' 2>/dev/null; sleep 1",
+          "logs": "tail -f logs/frontend-dev.log 2>/dev/null || echo 'Frontend logs will appear here once started...'",
+          "status": "(pgrep -f 'next dev.*3000' > /dev/null || pgrep -f 'next-server' > /dev/null) && echo 'running' || echo 'stopped'"
+        }
+      },
+      "production": {
+        "frontend": {
+          "start": "cd frontend && npm run build && npm run start > ../logs/frontend-prod.log 2>&1 &",
+          "stop": "pkill -f 'next start'",
+          "logs": "tail -f logs/frontend-prod.log 2>/dev/null || echo 'Frontend production logs will appear here once started...'",
+          "status": "pgrep -f 'next start' > /dev/null && echo 'running' || echo 'stopped'"
+        }
+      }
+    },
     "logs": {
       "development": {
         "backend": "docker compose -f docker-compose.dev.yml logs backend -f",
         "backend_tail": "docker compose -f docker-compose.dev.yml logs backend --tail=100",
         "wuzapi": "docker compose -f docker-compose.dev.yml logs wuzapi -f",
         "wuzapi_tail": "docker compose -f docker-compose.dev.yml logs wuzapi --tail=50",
-        "all_services": "docker compose -f docker-compose.dev.yml logs -f -t"
+        "all_services": "docker compose -f docker-compose.dev.yml logs -f -t",
+        "frontend": "tail -f logs/frontend-dev.log 2>/dev/null || echo 'Frontend logs will appear here once started...'"
       },
       "production": {
         "backend": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs backend -f --tail=100\"",
         "wuzapi": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs wuzapi --tail=50\"",
-        "all_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs -f\""
+        "all_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml logs -f\"",
+        "frontend": "echo 'Production frontend logs:'; cd frontend && npm run preview 2>&1"
       },
       "frontend": {
         "vercel_logs": "vercel logs --output json",
@@ -88,12 +91,14 @@
       "development": {
         "docker_status": "docker compose -f docker-compose.dev.yml ps",
         "docker_services": "docker compose -f docker-compose.dev.yml ps --format table",
-        "list_containers": "docker ps --format \"{{.Names}}\""
+        "list_containers": "docker ps --format \"{{.Names}}\"",
+        "frontend_status": "pgrep -f 'vite.*dev' > /dev/null && echo 'Frontend: Running' || echo 'Frontend: Stopped'"
       },
       "production": {
         "docker_status": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps\"",
         "docker_services": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"cd /home/ec2-user/chatwithoats && docker compose -f docker-compose.prod.yml ps --format table\"",
-        "list_containers": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"docker ps --format '{{.Names}}'\""
+        "list_containers": "ssh -i aws_key.pem -o StrictHostKeyChecking=no ec2-user@51.84.91.162 \"docker ps --format '{{.Names}}'\"",
+        "frontend_status": "pgrep -f 'vite.*preview' > /dev/null && echo 'Frontend: Running' || echo 'Frontend: Stopped'"
       },
       "frontend": {
         "vercel_status": "vercel inspect --wait",
